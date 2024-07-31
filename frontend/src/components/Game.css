@@ -1,15 +1,17 @@
-
 .game-container {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, sans-serif;
+  color: #e0e0e0;
+  background-color: #1a1a1a;
 }
 
 .stats {
   display: flex;
   justify-content: space-between;
   margin-bottom: 20px;
+  font-size: 18px;
 }
 
 .click-button {
@@ -19,6 +21,7 @@
   border: none;
   cursor: pointer;
   transition: transform 0.1s;
+  color: #f2a900;
 }
 
 .click-button:active {
@@ -52,6 +55,7 @@ button {
   font-size: 14px;
   margin: 4px 2px;
   cursor: pointer;
+  border-radius: 3px;
 }
 
 button:disabled {
@@ -62,4 +66,48 @@ button:disabled {
 .prestige-button {
   margin-top: 20px;
   background-color: #f44336;
+}
+
+.achievement-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px;
+  border-radius: 5px;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+.achievements-section {
+  margin-top: 20px;
+}
+
+.achievement {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  color: #888;
+}
+
+.achievement.achieved {
+  color: #4CAF50;
+}
+
+.floating-text {
+  position: absolute;
+  color: gold;
+  font-weight: bold;
+  animation: float-up 1s ease-out;
+  pointer-events: none;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0; }
+  10%, 90% { opacity: 1; }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-50px); opacity: 0; }
 }

@@ -1,4 +1,3 @@
-// Backend: src/gameLogic.js
 const users = {};
 
 const PRESTIGE_COST = 1e6; // 1 million coins to prestige
@@ -20,85 +19,110 @@ const UPGRADES = {
 };
 
 function initUser(userId) {
+  console.log(`Initializing user with ID: ${userId}`);
   if (!users[userId]) {
     users[userId] = {
-      cryptoCoins: 100,
+      userId: userId,
+      cryptoCoins: 0,
       businesses: {},
       upgrades: [],
       incomeMultiplier: 1,
       lastActive: Date.now(),
-      prestigePoints: 0
+      prestigePoints: 0,
+      achievements: []
     };
+    console.log(`Created new user:`, users[userId]);
+  } else {
+    console.log(`User already exists:`, users[userId]);
   }
   return users[userId];
 }
 
 function updateUser(userId) {
+  console.log(`Updating user with ID: ${userId}`);
   const user = users[userId];
-  if (!user) return null;
+  if (!user) {
+    console.error(`User not found for ID: ${userId}`);
+    return null;
+  }
 
   const now = Date.now();
   const offlineTime = (now - user.lastActive) / 1000; // seconds
-  user.cryptoCoins += calculateOfflineEarnings(user, offlineTime);
+  const offlineEarnings = calculateOfflineEarnings(user, offlineTime);
+  user.cryptoCoins += offlineEarnings;
   user.lastActive = now;
 
+  console.log(`Updated user data:`, user);
+  console.log(`Offline earnings: ${offlineEarnings}`);
+  return user;
+}
+
+function clickCoin(userId) {
+  console.log(`Processing click for user ${userId}`);
+  const user = users[userId];
+  if (!user) {
+    console.error(`User not found for ID: ${userId}`);
+    return null;
+  }
+
+  const clickPower = calculateClickPower(user);
+  user.cryptoCoins += clickPower;
+  console.log(`Click processed. Coins added: ${clickPower}. New total: ${user.cryptoCoins}`);
   return user;
 }
 
 function buyBusiness(userId, businessType) {
+  console.log(`Buying business for user ${userId}: ${businessType}`);
   const user = users[userId];
-  if (!user) return null;
+  if (!user) {
+    console.error(`User not found for ID: ${userId}`);
+    return null;
+  }
 
   const currentCount = user.businesses[businessType] || 0;
   const cost = calculateBusinessCost(businessType, currentCount);
 
   if (user.cryptoCoins < cost) {
+    console.log(`Not enough coins. Required: ${cost}, Available: ${user.cryptoCoins}`);
     return user;
   }
 
   user.cryptoCoins -= cost;
-  user.businesses[businessType] = currentCount + 1;
+  user.businesses[businessType] = (user.businesses[businessType] || 0) + 1;
 
+  console.log(`Business purchased. Updated user data:`, user);
   return user;
 }
 
 function buyUpgrade(userId, upgradeId) {
+  console.log(`Buying upgrade for user ${userId}: ${upgradeId}`);
   const user = users[userId];
-  if (!user) return null;
+  if (!user) {
+    console.error(`User not found for ID: ${userId}`);
+    return null;
+  }
 
-  const cost = UPGRADES[upgradeId].cost;
-
-  if (user.cryptoCoins < cost || user.upgrades.includes(upgradeId)) {
+  const upgrade = UPGRADES[upgradeId];
+  if (user.cryptoCoins < upgrade.cost || user.upgrades.includes(upgradeId)) {
+    console.log(`Unable to buy upgrade. Coins: ${user.cryptoCoins}, Cost: ${upgrade.cost}, Already owned: ${user.upgrades.includes(upgradeId)}`);
     return user;
   }
 
-  user.cryptoCoins -= cost;
+  user.cryptoCoins -= upgrade.cost;
   user.upgrades.push(upgradeId);
-  user.incomeMultiplier *= UPGRADES[upgradeId].effect;
+  user.incomeMultiplier *= upgrade.effect;
 
+  console.log(`Upgrade purchased. Updated user data:`, user);
   return user;
-}
-
-function clickCoin(userId) {
-  const user = users[userId];
-  if (!user) return null;
-
-  const clickPower = calculateClickPower(user);
-  user.cryptoCoins += clickPower;
-  return user;
-}
-
-function calculateClickPower(user) {
-  let clickPower = 1;
-  if (user.upgrades.includes('clickUpgrade')) {
-    clickPower *= UPGRADES.clickUpgrade.effect;
-  }
-  return clickPower;
 }
 
 function prestige(userId) {
+  console.log(`Processing prestige for user ${userId}`);
   const user = users[userId];
-  if (!user || user.cryptoCoins < PRESTIGE_COST) return null;
+  if (!user || user.cryptoCoins < PRESTIGE_COST) {
+    console.log(`Unable to prestige. User exists: ${!!user}, Coins: ${user ? user.cryptoCoins : 'N/A'}`);
+    return null;
+  }
 
   const prestigePoints = Math.floor(Math.log10(user.cryptoCoins / PRESTIGE_COST));
   user.cryptoCoins = 0;
@@ -107,6 +131,7 @@ function prestige(userId) {
   user.prestigePoints += prestigePoints;
   user.incomeMultiplier = 1 + user.prestigePoints * 0.1; // 10% boost per prestige point
 
+  console.log(`Prestige processed. New prestige points: ${user.prestigePoints}`);
   return user;
 }
 
@@ -126,46 +151,23 @@ function calculateOfflineEarnings(user, offlineTime) {
   return calculateIncome(user) * offlineTime;
 }
 
-function getStatus(userId) {
-  const user = users[userId];
-  if (!user) return 'Please start the game first with /start';
-
-  let statusMessage = `💰 Coins: ${user.cryptoCoins.toFixed(2)}\n`;
-  statusMessage += `💼 Businesses:\n`;
-  for (const [businessType, count] of Object.entries(user.businesses)) {
-    statusMessage += `  ${BUSINESSES[businessType].name}: ${count}\n`;
+function calculateClickPower(user) {
+  let clickPower = 1;
+  if (user.upgrades.includes('clickUpgrade')) {
+    clickPower *= UPGRADES.clickUpgrade.effect;
   }
-  statusMessage += `🚀 Income per second: ${calculateIncome(user).toFixed(2)}`;
-  statusMessage += `\n🏆 Prestige Points: ${user.prestigePoints}`;
-
-  return statusMessage;
-}
-
-function getBusinesses() {
-  let message = 'Available businesses:\n';
-  for (const [type, business] of Object.entries(BUSINESSES)) {
-    message += `${business.name} - Cost: ${business.baseCost} coins, Income: ${business.baseIncome}/s\n`;
-  }
-  return message;
-}
-
-function getUpgrades() {
-  let message = 'Available upgrades:\n';
-  for (const [id, upgrade] of Object.entries(UPGRADES)) {
-    message += `${upgrade.name} - Cost: ${upgrade.cost} coins, Effect: ${(upgrade.effect - 1) * 100}% income boost\n`;
-  }
-  return message;
+  return clickPower;
 }
 
 module.exports = {
   initUser,
   updateUser,
+  clickCoin,
   buyBusiness,
   buyUpgrade,
-  clickCoin,
   prestige,
-  getStatus,
-  getBusinesses,
-  getUpgrades,
-  calculateClickPower
+  calculateIncome,
+  calculateBusinessCost,
+  BUSINESSES,
+  UPGRADES
 };
