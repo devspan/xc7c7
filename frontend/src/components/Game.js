@@ -3,7 +3,7 @@ import axios from 'axios';
 import { FaBitcoin, FaArrowUp, FaTrophy } from 'react-icons/fa';
 import './Game.css';
 
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
 function Game() {
   const [user, setUser] = useState(null);
@@ -11,6 +11,16 @@ function Game() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [floatingTexts, setFloatingTexts] = useState([]);
+  const [telegramUser, setTelegramUser] = useState(null);
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      setTelegramUser(tg.initDataUnsafe.user);
+      tg.expand();
+    }
+  }, []);
 
   const fetchGameData = useCallback(async () => {
     try {
@@ -23,9 +33,14 @@ function Game() {
   }, []);
 
   const initializeUser = useCallback(async () => {
+    if (!telegramUser) return;
     try {
-      const userId = '123'; // In a real app, get this from Telegram Mini App
-      const response = await axios.post(`${API_BASE_URL}/user/init`, { userId });
+      const response = await axios.post(`${API_BASE_URL}/user/init`, { 
+        userId: telegramUser.id.toString(),
+        username: telegramUser.username,
+        firstName: telegramUser.first_name,
+        lastName: telegramUser.last_name
+      });
       setUser(response.data);
       setLoading(false);
     } catch (error) {
@@ -33,12 +48,17 @@ function Game() {
       setError("Failed to initialize user. Please refresh the page.");
       setLoading(false);
     }
-  }, []);
+  }, [telegramUser]);
 
   useEffect(() => {
     fetchGameData();
-    initializeUser();
-  }, [fetchGameData, initializeUser]);
+  }, [fetchGameData]);
+
+  useEffect(() => {
+    if (telegramUser) {
+      initializeUser();
+    }
+  }, [telegramUser, initializeUser]);
 
   const updateUser = useCallback(async () => {
     if (!user) return;

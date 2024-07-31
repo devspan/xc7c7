@@ -1,5 +1,7 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const { 
   initUser, 
   updateUser, 
@@ -7,25 +9,48 @@ const {
   buyBusiness, 
   buyUpgrade, 
   prestige, 
-  calculateIncome,
-  calculateBusinessCost,
   BUSINESSES,
   UPGRADES
 } = require('./gameLogic');
 
 const app = express();
-app.use(cors());
+
+// CORS configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
-// Middleware for logging requests
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+// Middleware to verify Telegram Web App data
+const verifyTelegramWebAppData = (req, res, next) => {
+  if (process.env.NODE_ENV === 'development') {
+    return next(); // Skip verification in development
+  }
+
+  const telegramInitData = req.headers['x-telegram-init-data'];
+  if (!telegramInitData) {
+    return res.status(401).json({ error: 'Unauthorized: No Telegram data provided' });
+  }
+
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(process.env.BOT_TOKEN);
+  const encoded = crypto.createHmac('sha256', secret.digest()).update(telegramInitData);
+  const hash = encoded.digest('hex');
+  
+  if (req.headers['x-telegram-hash'] !== hash) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid Telegram data' });
+  }
+
   next();
-});
+};
+
+// Apply Telegram verification middleware to all routes
+app.use(verifyTelegramWebAppData);
 
 app.post('/api/user/init', (req, res) => {
   console.log('Received user init request with body:', req.body);
-  const { userId } = req.body;
+  const { userId, username, firstName, lastName } = req.body;
   
   if (!userId) {
     console.error('User initialization failed: No userId provided');
@@ -33,7 +58,7 @@ app.post('/api/user/init', (req, res) => {
   }
 
   try {
-    const userData = initUser(userId);
+    const userData = initUser(userId, { username, firstName, lastName });
     console.log('User initialized successfully:', userData);
     res.json(userData);
   } catch (error) {
